@@ -90,7 +90,8 @@ signatures! {
 	runtime => "E8 ?? ?? ?? ?? 31 C0 8D B4 26 00 00 00 00 8B 5D ?? 8B 75 ?? 8B 7D ?? 89 EC",
 	suspended_procs => "A3 ?? ?? ?? ?? 8D 14 ?? 73 ?? 8D 74 26 00 83 C0 01 8B 14 ?? 39 C3 89 54 ?? ??",
 	suspended_procs_buffer => "89 35 ?? ?? ?? ?? C7 04 24 ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B 45 ?? 83 C0 08",
-	to_string => "E8 ?? ?? ?? ?? 89 04 24 E8 ?? ?? ?? ?? 8B 00 8D 4D ?? 89 0C 24"
+	to_string => "E8 ?? ?? ?? ?? 89 04 24 E8 ?? ?? ?? ?? 8B 00 8D 4D ?? 89 0C 24",
+	set_variable => "E8 ?? ?? ?? ?? 8B 45 ?? 8D 65 ?? 5B 5E 5F 5D C3 8D B4 26 00 00 00 00 8B 40 ??"
 }
 
 macro_rules! find_function {
@@ -271,33 +272,27 @@ byond_ffi_fn! { auxtools_init(_input) {
 			}
 		};
 
-		let mut set_variable = std::ptr::null();
-		{
-			if cfg!(windows) {
+		let set_variable_byond = {
+			#[cfg(windows)]
+			{
 				let res = byondcore.find(signature!("55 8B EC 8B 4D 08 0F B6 C1 48 57 8B 7D 10 83 F8 53 0F ?? ?? ?? ?? ?? 0F B6 80 ?? ?? ?? ?? FF 24 85 ?? ?? ?? ?? FF 75 18 FF 75 14 57 FF 75 0C E8 ?? ?? ?? ?? 83 C4 10 5F 5D C3"));
 
 				if let Some(ptr) = res {
-					set_variable = ptr as *const std::ffi::c_void;
+					ptr as *const std::ffi::c_void;
+				} else {
+					return Some("FAILED (Couldn't find set_variable)".to_owned());
 				}
 			}
 
-			if cfg!(unix) {
-				let res =
-					if version::get().1 >= 1543 {
-						byondcore.find(signature!("55 89 E5 81 EC A8 00 00 00 8B 55 ?? 89 5D ?? 8B 4D ?? 89 7D ?? 8B 5D ??"))
-					} else {
-						byondcore.find(signature!("55 89 E5 81 EC A8 00 00 00 8B 55 ?? 8B 45 ?? 89 5D ?? 8B 5D ?? 89 7D ??"))
-					};
-
-				if let Some(ptr) = res {
-					set_variable = ptr as *const std::ffi::c_void;
+			#[cfg(unix)]
+			{
+				with_scanner_by_call! { byondcore,
+					set_variable
 				}
-			}
 
-			if set_variable.is_null() {
-				return Some("FAILED (Couldn't find set_variable)".to_owned());
+				set_variable
 			}
-		}
+		};
 
 		let mut current_execution_context = std::ptr::null_mut();
 		{
@@ -327,7 +322,7 @@ byond_ffi_fn! { auxtools_init(_input) {
 			raw_types::funcs::get_proc_array_entry_byond = get_proc_array_entry;
 			raw_types::funcs::get_string_id_byond = get_string_id;
 			raw_types::funcs::get_variable_byond = get_variable;
-			raw_types::funcs::set_variable_byond = set_variable;
+			raw_types::funcs::set_variable_byond = set_variable_byond;
 			raw_types::funcs::get_string_table_entry_byond = get_string_table_entry;
 			raw_types::funcs::inc_ref_count_byond = inc_ref_count;
 			raw_types::funcs::get_assoc_element_byond = get_assoc_element;
